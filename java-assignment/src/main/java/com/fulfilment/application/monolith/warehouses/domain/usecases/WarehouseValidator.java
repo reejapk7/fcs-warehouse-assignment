@@ -102,4 +102,55 @@ public class WarehouseValidator {
 
     return warehouse;
   }
+
+  /** Validates that the warehouse's stock does not exceed its own capacity. */
+  public void validateStockWithinCapacity(Warehouse warehouse) {
+    if (warehouse.stock != null && warehouse.stock > warehouse.capacity) {
+      LOGGER.warnf(
+          "Rejected: stock %d exceeds capacity %d", warehouse.stock, warehouse.capacity);
+      throw new IllegalArgumentException("Warehouse stock cannot exceed its own capacity");
+    }
+  }
+
+  /**
+   * Validates that a replacement warehouse is stock/capacity-consistent with the warehouse it is
+   * replacing: its stock must be provided, must not exceed its own capacity, and must match the
+   * stock of the warehouse being replaced, whose capacity must be able to accommodate that stock.
+   */
+  public void validateReplacementConsistency(Warehouse oldWarehouse, Warehouse newWarehouse) {
+    if (newWarehouse.stock == null) {
+      LOGGER.warnf(
+          "Rejected replace: stock not provided for business unit code %s",
+          newWarehouse.businessUnitCode);
+      throw new IllegalArgumentException("Warehouse stock must be provided");
+    }
+
+    if (oldWarehouse.stock == null) {
+      LOGGER.warnf(
+              "Rejected replace: old warehouse %s has no recorded stock",
+              oldWarehouse.businessUnitCode);
+      throw new IllegalArgumentException(
+              "The warehouse being replaced has no recorded stock; cannot validate replacement");
+    }
+
+    validateStockWithinCapacity(newWarehouse);
+
+
+    if (newWarehouse.capacity < oldWarehouse.stock) {
+      LOGGER.warnf(
+          "Rejected replace: new capacity %d cannot accommodate old stock %d",
+          newWarehouse.capacity, oldWarehouse.stock);
+      throw new IllegalArgumentException(
+          "New warehouse capacity must be able to accommodate the stock of the warehouse being"
+              + " replaced");
+    }
+
+    if (!newWarehouse.stock.equals(oldWarehouse.stock)) {
+      LOGGER.warnf(
+          "Rejected replace: new stock %d does not match old stock %d",
+          newWarehouse.stock, oldWarehouse.stock);
+      throw new IllegalArgumentException(
+          "New warehouse stock must match the stock of the warehouse being replaced");
+    }
+  }
 }
