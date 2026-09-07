@@ -2,9 +2,9 @@ package com.fulfilment.application.monolith.stores;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.panache.common.Sort;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.Consumes;
@@ -28,7 +28,7 @@ import org.jboss.logging.Logger;
 @Consumes("application/json")
 public class StoreResource {
 
-  @Inject LegacyStoreManagerGateway legacyStoreManagerGateway;
+  @Inject Event<StoreChangedEvent> storeChangedEvent;
 
   private static final Logger LOGGER = Logger.getLogger(StoreResource.class.getName());
 
@@ -48,73 +48,65 @@ public class StoreResource {
   }
 
   @POST
+  @Transactional
   public Response create(Store store) {
     if (store.id != null) {
       throw new WebApplicationException("Id was invalidly set on request.", 422);
     }
 
-    QuarkusTransaction.requiringNew().run(() -> {
-      store.persist();
-    });
-
-    legacyStoreManagerGateway.createStoreOnLegacySystem(store);
+    store.persist();
+    storeChangedEvent.fire(new StoreChangedEvent(store, StoreChangedEvent.ChangeType.CREATED));
 
     return Response.ok(store).status(201).build();
   }
 
   @PUT
   @Path("{id}")
+  @Transactional
   public Store update(Long id, Store updatedStore) {
     if (updatedStore.name == null) {
       throw new WebApplicationException("Store Name was not set on request.", 422);
     }
 
-    Store entity = QuarkusTransaction.requiringNew().call(() -> {
-      Store existing = Store.findById(id);
+    Store existing = Store.findById(id);
 
-      if (existing == null) {
-        throw new WebApplicationException("Store with id of " + id + " does not exist.", 404);
-      }
+    if (existing == null) {
+      throw new WebApplicationException("Store with id of " + id + " does not exist.", 404);
+    }
 
-      existing.name = updatedStore.name;
-      existing.quantityProductsInStock = updatedStore.quantityProductsInStock;
+    existing.name = updatedStore.name;
+    existing.quantityProductsInStock = updatedStore.quantityProductsInStock;
 
-      return existing;
-    });
+    storeChangedEvent.fire(new StoreChangedEvent(existing, StoreChangedEvent.ChangeType.UPDATED));
 
-    legacyStoreManagerGateway.updateStoreOnLegacySystem(updatedStore);
-
-    return entity;
+    return existing;
   }
 
   @PATCH
   @Path("{id}")
+  @Transactional
   public Store patch(Long id, Store updatedStore) {
     if (updatedStore.name == null) {
       throw new WebApplicationException("Store Name was not set on request.", 422);
     }
 
-    Store entity = QuarkusTransaction.requiringNew().call(() -> {
-      Store existing = Store.findById(id);
+    Store existing = Store.findById(id);
 
-      if (existing == null) {
-        throw new WebApplicationException("Store with id of " + id + " does not exist.", 404);
-      }
+    if (existing == null) {
+      throw new WebApplicationException("Store with id of " + id + " does not exist.", 404);
+    }
 
-      if (existing.name != null) {
-        existing.name = updatedStore.name;
-      }
+    if (existing.name != null) {
+      existing.name = updatedStore.name;
+    }
 
-      if (existing.quantityProductsInStock != 0) {
-        existing.quantityProductsInStock = updatedStore.quantityProductsInStock;
-      }
+    if (existing.quantityProductsInStock != 0) {
+      existing.quantityProductsInStock = updatedStore.quantityProductsInStock;
+    }
 
-      return existing;
-    });
+    storeChangedEvent.fire(new StoreChangedEvent(existing, StoreChangedEvent.ChangeType.UPDATED));
 
-    legacyStoreManagerGateway.updateStoreOnLegacySystem(updatedStore);
-
-    return entity;
+    return existing;
   }
 
   @DELETE

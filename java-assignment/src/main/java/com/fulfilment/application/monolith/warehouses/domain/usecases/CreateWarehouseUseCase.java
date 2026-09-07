@@ -28,11 +28,7 @@ public class CreateWarehouseUseCase implements CreateWarehouseOperation {
 
     warehouseValidator.validateLocationAndCapacity(warehouse, null);
 
-    if (warehouse.stock != null && warehouse.stock > warehouse.capacity) {
-      LOGGER.warnf(
-          "Rejected create: stock %d exceeds capacity %d", warehouse.stock, warehouse.capacity);
-      throw new IllegalArgumentException("Warehouse stock cannot exceed its own capacity");
-    }
+    warehouseValidator.validateStockWithinCapacity(warehouse);
 
     warehouse.createdAt = LocalDateTime.now();
     warehouse.archivedAt = null;
