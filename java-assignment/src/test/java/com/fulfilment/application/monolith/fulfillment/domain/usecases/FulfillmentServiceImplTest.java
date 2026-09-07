@@ -24,9 +24,10 @@ public class FulfillmentServiceImplTest {
     storeExistenceChecker = new FakeStoreExistenceChecker();
     warehouseStore = new FakeWarehouseStore();
 
-    fulfillmentService =
-        new FulfillmentServiceImpl(
+    FulfillmentValidator fulfillmentValidator =
+        new FulfillmentValidator(
             fulfillmentStore, productExistenceChecker, storeExistenceChecker, warehouseStore);
+    fulfillmentService = new FulfillmentServiceImpl(fulfillmentStore, fulfillmentValidator);
 
     productExistenceChecker.add(1L);
     storeExistenceChecker.add(1L);
